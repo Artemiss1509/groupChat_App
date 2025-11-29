@@ -1,6 +1,10 @@
 import express from 'express';
 import cors from 'cors'
 import userRouter from './routes/user.routes.js'
+import './models/user.model.js';
+import './models/messages.model.js';
+import './models/conversation.model.js';
+import './models/associations.js';
 import db from "./utils/DB.connection.js";
 
 const app = express()
@@ -8,13 +12,10 @@ app.use(express.json());
 app.use(cors())
 
 app.use('/user',userRouter);
+// app.use('/conversation', conversationRouter);
+// app.use('/messages', messagesRouter);
 
-
-
-
-
-
-db.sync({force:true}).then(() => {
+db.sync().then(() => {
   console.log('Database synced');
   app.listen(3000, () => {
     console.log('Server is running on port 3000');

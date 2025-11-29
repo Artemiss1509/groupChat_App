@@ -64,7 +64,7 @@ async function loginFormSubmit(event) {
                 const token = response.data.token;
                 localStorage.setItem('token', token);
                 console.log(response.data);
-                expensePage();
+                chatPage();
             })
             .catch(error => {
                 console.error('Sign-in error', error);
@@ -74,4 +74,8 @@ async function loginFormSubmit(event) {
     } catch (error) {
         console.error('Login form submit request error', error);
     }
+}
+
+function chatPage(){
+    window.location.href = 'chatPage.html';
 }
