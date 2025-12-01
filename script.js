@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const searchBtn = document.getElementById('search-submit-btn');
     const searchInput = document.getElementById('user-search-input');
     const resultsList = document.getElementById('search-results-list');
+    const sendBtn = document.getElementById('send-btn');
+    const messageInput = document.getElementById('message-input');
+    const chatList = document.getElementById('chats-list');
 
     if(signUp){
         signUp.addEventListener('submit', handleFormSubmit)
@@ -29,7 +32,24 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(searchBtn){
         searchBtn.addEventListener('click', searchResults)
     }
+    if(sendBtn){
+        sendBtn.addEventListener('click', sendMessage)
+    }
+    if(messageInput){
+        messageInput.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter'){
+                sendMessage();
+            }
+        })
+    }
+
+    if(chatList){
+        loadUserConversations();
+    }
 })
+
+let currentConversationId = null;
+let currentChatUser = null;
 
 async function handleFormSubmit(event) {
     event.preventDefault();
@@ -108,9 +128,7 @@ async function searchResults() {
     if (!query) return;
 
     try {
-        const response = await axios.get(`http://localhost:3000/user/search?search=${query}`, {
-            headers: { Authorization: token } 
-        });
+        const response = await axios.get(`http://localhost:3000/user/search?search=${query}`, {headers: { "Authorization": `Bearer ${token}` }});
         
         renderSearchResults(response.data);
     } catch (error) {
@@ -136,28 +154,170 @@ function renderSearchResults(users) {
     });
 }
 
-
-function startChat(user) {
+async function startChat(user) {
     const modal = document.getElementById('new-chat-modal');
+    const token = localStorage.getItem('token');
     modal.style.display = "none";
     
-    document.getElementById('chat-name').textContent = user.name;
-    document.getElementById('chat-status').textContent = 'online';
-    
-    localStorage.setItem('currentChatUserId', user.id);
-    
-    addToSidebar(user);
-    document.getElementById('messages-container').innerHTML = '';
-    
-    console.log(`Chat started with ${user.name}`);
+    try {
+        const response = await axios.post('http://localhost:3000/conversation/create', 
+            { participantId: user.id },
+            {headers: { "Authorization": `Bearer ${token}` }}
+        );
+
+        currentConversationId = response.data.conversation.id;
+        currentChatUser = user;
+
+        document.getElementById('chat-name').textContent = user.name;
+        document.getElementById('chat-status').textContent = 'online';
+        
+        if(response.data.isNew){
+            addToSidebar(user, currentConversationId);
+        }
+
+        await loadMessages(currentConversationId);
+        
+        console.log(`Chat started with ${user.name}`);
+    } catch (error) {
+        console.error('Error starting chat:', error);
+        alert('Error starting conversation');
+    }
 }
 
-
-function addToSidebar(user) {
+function addToSidebar(user, conversationId) {
     const chatList = document.getElementById('chats-list');
+    
+    const existingChats = chatList.querySelectorAll('.chat-item');
+    for (let chat of existingChats) {
+        if (chat.dataset.userId == user.id) {
+            console.log(`Chat with ${user.name} already exists in sidebar`);
+            return;
+        }
+    }
+    
     const div = document.createElement('div');
     div.className = 'chat-item'; 
     div.textContent = user.name;
-    div.onclick = () => startChat(user); 
+    div.dataset.userId = user.id;
+    div.dataset.conversationId = conversationId;
+    div.onclick = () => {
+        currentConversationId = conversationId;
+        currentChatUser = user;
+        document.getElementById('chat-name').textContent = user.name;
+        document.getElementById('chat-status').textContent = 'online';
+        loadMessages(conversationId);
+    }; 
     chatList.appendChild(div);
+}
+
+async function loadUserConversations() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+        const response = await axios.get('http://localhost:3000/conversation/list', {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        const conversations = response.data;
+        conversations.forEach(conv => {
+            if(conv.participant){
+                addToSidebar(conv.participant, conv.conversationId);
+            }
+        });
+
+        console.log('Loaded conversations:', conversations);
+    } catch (error) {
+        console.error('Error loading conversations:', error);
+    }
+}
+
+async function loadMessages(conversationId) {
+    const token = localStorage.getItem('token');
+    
+    try {
+        const response = await axios.get(`http://localhost:3000/messages/${conversationId}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        const messages = response.data;
+        displayMessages(messages);
+    } catch (error) {
+        console.error('Error loading messages:', error);
+    }
+}
+
+function displayMessages(messages) {
+    const container = document.getElementById('messages-container');
+    container.innerHTML = '';
+
+    messages.forEach(msg => {
+        const messageDiv = document.createElement('div');
+        const token = localStorage.getItem('token');
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentUserId = payload.id;
+
+        messageDiv.className = msg.senderId === currentUserId ?  'message sent' : 'message received';
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.textContent = msg.content;
+        
+        messageDiv.appendChild(contentDiv);
+        container.appendChild(messageDiv);
+    });
+
+    container.scrollTop = container.scrollHeight;
+}
+
+
+async function sendMessage() {
+    const messageInput = document.getElementById('message-input');
+    const content = messageInput.value.trim();
+    const token = localStorage.getItem('token');
+
+    if (!content || !currentConversationId) {
+        console.log('No message or conversation selected');
+        return;
+    }
+
+    try {
+        const response = await axios.post('http://localhost:3000/messages/send',
+            {
+                conversationId: currentConversationId,
+                content: content
+            },
+            {
+                headers: { "Authorization": `Bearer ${token}` }
+            }
+        );
+
+        const newMessage = response.data.data;
+        appendMessage(newMessage);
+
+        messageInput.value = '';
+        
+    } catch (error) {
+        console.error('Error sending message:', error);
+        alert('Error sending message');
+    }
+}
+
+function appendMessage(message) {
+    const container = document.getElementById('messages-container');
+    const token = localStorage.getItem('token');
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentUserId = payload.id;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = message.senderId === currentUserId ? 'message sent' : 'message received';
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    contentDiv.textContent = message.content;
+    
+    messageDiv.appendChild(contentDiv);
+    container.appendChild(messageDiv);
+
+    container.scrollTop = container.scrollHeight;
 }

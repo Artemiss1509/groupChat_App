@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors'
 import userRouter from './routes/user.routes.js'
+import conversationRouter from './routes/conversation.routes.js';
+import messagesRouter from './routes/messages.routes.js';
 import './models/user.model.js';
 import './models/messages.model.js';
 import './models/conversation.model.js';
@@ -12,8 +14,8 @@ app.use(express.json());
 app.use(cors())
 
 app.use('/user',userRouter);
-// app.use('/conversation', conversationRouter);
-// app.use('/messages', messagesRouter);
+app.use('/conversation', conversationRouter);
+app.use('/messages', messagesRouter);
 
 db.sync().then(() => {
   console.log('Database synced');
