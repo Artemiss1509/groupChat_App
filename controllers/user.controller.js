@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { Op } from "sequelize";
 import { JWT_EXPIRY, JWT_SECRET } from "../utils/env.js";
 import Users from "../models/user.model.js";
 
@@ -52,3 +53,30 @@ export const signIn = async (req, res) => {
         res.status(500).json({ message: "Sign-in error", error: error.message });
     }
 }
+
+export const searchUsers = async (req, res) => {
+    try {
+        const { search } = req.query;
+        const currentUserId = req.user.id;
+
+        const users = await Users.findAll({
+            where: {
+                [Op.and]: [
+                    { id: { [Op.ne]: currentUserId } },
+                    {
+                        [Op.or]: [
+                            { name: { [Op.like]: `%${search}%` } },
+                            { email: { [Op.like]: `%${search}%` } },
+                            { phone: { [Op.like]: `%${search}%` } }
+                        ]
+                    }
+                ]
+            },
+            attributes: ['id', 'name', 'email', 'phone'] 
+        });
+
+        res.status(200).json(users);
+    } catch (error) {
+        res.status(500).json({ message: "Error searching users", error: error.message });
+    }
+};

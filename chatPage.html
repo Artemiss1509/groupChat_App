@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat Application</title>
     <link rel="stylesheet" href="chatStyle.css">
 </head>
+
 <body>
     <div class="app-container">
-        
+
         <!-- Sidebar: Contacts/Chats List -->
         <aside class="sidebar">
             <!-- Header -->
@@ -19,13 +21,8 @@
 
             <!-- Search Bar -->
             <div class="search-container">
-                <input 
-                    type="text" 
-                    id="search-input" 
-                    class="search-input" 
-                    placeholder="Search contacts..."
-                    aria-label="Search contacts"
-                >
+                <input type="text" id="search-input" class="search-input" placeholder="Search contacts..."
+                    aria-label="Search contacts">
             </div>
 
             <!-- Chats List -->
@@ -36,7 +33,7 @@
 
         <!-- Main Chat Area -->
         <main class="chat-container">
-            
+
             <!-- Chat Header -->
             <header class="chat-header">
                 <div class="chat-header-info">
@@ -52,13 +49,8 @@
             <!-- Message Input Area -->
             <footer class="chat-footer">
                 <div class="input-group">
-                    <input 
-                        type="text" 
-                        id="message-input" 
-                        class="message-input" 
-                        placeholder="Type a message..."
-                        aria-label="Message input"
-                    >
+                    <input type="text" id="message-input" class="message-input" placeholder="Type a message..."
+                        aria-label="Message input">
                     <button class="input-btn send-btn" id="send-btn" aria-label="Send message">➤</button>
                 </div>
             </footer>
@@ -66,8 +58,22 @@
         </main>
 
     </div>
+    <div id="new-chat-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span id="close-modal" class="close">&times;</span>
+            <h2>Start New Chat</h2>
 
-    <script></script>
+            <div class="search-group">
+                <input type="text" id="user-search-input" placeholder="Search by email or phone...">
+                <button id="search-submit-btn">Search</button>
+            </div>
+
+            <ul id="search-results-list" class="results-list">
+                <!-- Results will appear here -->
+            </ul>
+        </div>
+    </div>
 
 </body>
+
 </html>
