@@ -20,7 +20,7 @@ export const createOrGetConversation = async (req, res) => {
         if (existingConversation) {
             const participants = await existingConversation.getUsers();
             const participantIds = participants.map(p => p.id).sort();
-            const targetIds = [currentUserId, participantId].sort();
+            const targetIds = [currentUserId, participantId]. sort();
             
             if (JSON.stringify(participantIds) === JSON.stringify(targetIds)) {
                 return res.status(200).json({ 
@@ -35,7 +35,7 @@ export const createOrGetConversation = async (req, res) => {
 
         await newConversation.addUsers([currentUserId, participantId]);
 
-        res.status(201).json({ 
+        res. status(201).json({ 
             conversation: newConversation,
             isNew: true
         });
@@ -63,14 +63,14 @@ export const getUserConversations = async (req, res) => {
                 {
                     model: Messages,
                     limit: 1,
-                    order: [['timestamp', 'DESC']],
-                    attributes: ['content', 'timestamp']
+                    order: [['createdAt', 'DESC']],  // CHANGED: timestamp -> createdAt
+                    attributes: ['content', 'createdAt']  // CHANGED: timestamp -> createdAt
                 }
             ],
             where: {
                 '$Users.id$': currentUserId
             },
-            order: [[Messages, 'timestamp', 'DESC']]
+            order: [[Messages, 'createdAt', 'DESC']]  // CHANGED: timestamp -> createdAt
         });
 
         const formattedConversations = await Promise.all(conversations.map(async (conv) => {
@@ -78,15 +78,15 @@ export const getUserConversations = async (req, res) => {
                 attributes: ['id', 'name', 'email']
             });
             
-            const otherParticipant = participants.find(p => p.id !== currentUserId);
-            const lastMessage = conv.Messages && conv.Messages[0];
+            const otherParticipant = participants. find(p => p.id !== currentUserId);
+            const lastMessage = conv.Messages && conv. Messages[0];
 
             return {
-                conversationId: conv.id,
+                conversationId: conv. id,
                 participant: otherParticipant || participants[0],
                 lastMessage: lastMessage ? {
                     content: lastMessage.content,
-                    timestamp: lastMessage.timestamp
+                    timestamp: lastMessage.createdAt  // CHANGED: timestamp -> createdAt
                 } : null,
                 createdAt: conv.createdAt
             };

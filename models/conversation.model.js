@@ -11,12 +11,12 @@ const Conversation = sequelize.define('Conversation', {
         type: DataTypes.ENUM('individual', 'group'),
         defaultValue: 'individual'
     },
-    name: { // Optional, mostly for group chats
+    name: { 
         type: DataTypes.STRING,
         allowNull: true
     }
 }, {
-    timestamps: true
+    timestamps: true,
 });
 
 export default Conversation;

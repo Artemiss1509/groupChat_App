@@ -5,7 +5,7 @@ import Conversation from "../models/conversation.model.js";
 export const sendMessage = async (req, res) => {
     try {
         const senderId = req.user.id;
-        const { conversationId, content } = req.body;
+        const { conversationId, content } = req. body;
 
         if (!conversationId || !content) {
             return res.status(400).json({ 
@@ -30,8 +30,8 @@ export const sendMessage = async (req, res) => {
         const newMessage = await Messages.create({
             senderId,
             conversationId,
-            content,
-            timestamp: new Date()
+            content
+            // REMOVED: timestamp: new Date() - Sequelize handles this automatically now
         });
 
         const messageWithSender = await Messages.findByPk(newMessage.id, {
@@ -51,7 +51,7 @@ export const sendMessage = async (req, res) => {
         console.error('Error sending message:', error);
         res.status(500).json({ 
             message: "Error sending message", 
-            error: error.message 
+            error: error. message 
         });
     }
 };
@@ -82,7 +82,7 @@ export const getConversationMessages = async (req, res) => {
                 as: 'User',
                 attributes: ['id', 'name', 'email']
             }],
-            order: [['timestamp', 'ASC']]
+            order: [['createdAt', 'ASC']]  // CHANGED: timestamp -> createdAt
         });
 
         res.status(200).json(messages);
