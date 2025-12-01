@@ -1,3 +1,7 @@
+let ws = null;
+let currentConversationId = null;
+let currentChatUser = null;
+
 document.addEventListener('DOMContentLoaded', ()=>{
     const signUp = document.getElementById('signupForm')
     const logIn = document.getElementById('loginForm')
@@ -45,11 +49,53 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     if(chatList){
         loadUserConversations();
+        initializeWebSocket(); 
     }
 })
 
-let currentConversationId = null;
-let currentChatUser = null;
+function initializeWebSocket() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    ws = new WebSocket('ws://localhost:3000');
+
+    ws.onopen = () => {
+        console.log('WebSocket connected');
+        ws.send(JSON.stringify({
+            type: 'auth',
+            token: token
+        }));
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const message = JSON.parse(event.data);
+            
+            if (message.type === 'auth') {
+                console.log('WebSocket authentication:', message.status);
+            }
+            
+            if (message.type === 'new_message') {
+                const newMessage = message.data;
+                
+                if (newMessage.conversationId === currentConversationId) {
+                    appendMessage(newMessage);
+                }
+            }
+        } catch (error) {
+            console.error('Error handling WebSocket message:', error);
+        }
+    };
+
+    ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        setTimeout(initializeWebSocket, 3000);
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+}
 
 async function handleFormSubmit(event) {
     event.preventDefault();
@@ -104,7 +150,6 @@ async function loginFormSubmit(event) {
             .then(response => {
                 const token = response.data.token;
                 localStorage.setItem('token', token);
-                console.log(response.data);
                 chatPage();
             })
             .catch(error => {
@@ -256,7 +301,7 @@ function displayMessages(messages) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const currentUserId = payload.id;
 
-        messageDiv.className = msg.senderId === currentUserId ?  'message sent' : 'message received';
+        messageDiv.className = msg.senderId === currentUserId ?   'message sent' : 'message received';
         
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
@@ -293,6 +338,19 @@ async function sendMessage() {
 
         const newMessage = response.data.data;
         appendMessage(newMessage);
+
+        // Send message via WebSocket to receiver
+        if (ws && ws.readyState === WebSocket.OPEN && currentChatUser) {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            ws.send(JSON.stringify({
+                type: 'new_message',
+                conversationId: currentConversationId,
+                senderId: payload.id,
+                receiverId: currentChatUser.id,
+                content: content,
+                messageData: newMessage
+            }));
+        }
 
         messageInput.value = '';
         
