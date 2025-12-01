@@ -28,14 +28,9 @@ const Messages = sequelize.define('Message', {
     content: {
         type: DataTypes.TEXT,
         allowNull: false
-    },
-    timestamp: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW
     }
 }, {
-    timestamps: true,  
-    createdAt: 'timestamp', 
+    timestamps: true,
     updatedAt: false
 });
 

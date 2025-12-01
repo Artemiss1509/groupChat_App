@@ -216,8 +216,7 @@ async function loadUserConversations() {
 
     try {
         const response = await axios.get('http://localhost:3000/conversation/list', {
-            headers: { "Authorization": `Bearer ${token}` }
-        });
+            headers: { "Authorization": `Bearer ${token}` }});
 
         const conversations = response.data;
         conversations.forEach(conv => {

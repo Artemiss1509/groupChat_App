@@ -11,12 +11,14 @@ import db from "./utils/DB.connection.js";
 
 const app = express()
 
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-}));
+app.use(
+  cors({
+    origin: "http://127.0.0.1:5500", // or whatever host/port you open chatPage.html from
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
