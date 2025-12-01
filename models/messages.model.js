@@ -17,7 +17,7 @@ const Messages = sequelize.define('Message', {
             key: 'id'
         }
     },
-    conversationId: { // Changed from receiverId
+    conversationId: {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
@@ -34,7 +34,9 @@ const Messages = sequelize.define('Message', {
         defaultValue: DataTypes.NOW
     }
 }, {
-    timestamps: false
+    timestamps: true,  
+    createdAt: 'timestamp', 
+    updatedAt: false
 });
 
 export default Messages;

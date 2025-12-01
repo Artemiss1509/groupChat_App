@@ -17,7 +17,7 @@ app.use('/user',userRouter);
 app.use('/conversation', conversationRouter);
 app.use('/messages', messagesRouter);
 
-db.sync().then(() => {
+db.sync({alter:true}).then(() => {
   console.log('Database synced');
   app.listen(3000, () => {
     console.log('Server is running on port 3000');
