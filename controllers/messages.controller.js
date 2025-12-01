@@ -82,7 +82,7 @@ export const getConversationMessages = async (req, res) => {
                 as: 'User',
                 attributes: ['id', 'name', 'email']
             }],
-            order: [['createdAt', 'ASC']]  // CHANGED: timestamp -> createdAt
+            order: [['createdAt', 'ASC']] 
         });
 
         res.status(200).json(messages);
