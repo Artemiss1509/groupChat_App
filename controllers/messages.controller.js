@@ -41,6 +41,13 @@ export const sendMessage = async (req, res) => {
                 attributes: ['id', 'name', 'email']
             }]
         });
+        const io = req.app.get('io');
+        io.to(`conversation-${conversationId}`). emit('new-message', messageWithSender);
+
+        res. status(201).json({ 
+            message: "Message sent successfully", 
+            data: messageWithSender 
+        });
 
         res.status(201).json({ 
             message: "Message sent successfully", 

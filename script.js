@@ -1,192 +1,259 @@
-let ws = null;
+// Initialize Socket.IO connection
+let socket = null;
 let currentConversationId = null;
 let currentChatUser = null;
 
-document.addEventListener('DOMContentLoaded', ()=>{
-    const signUp = document.getElementById('signupForm')
-    const logIn = document.getElementById('loginForm')
-    const modal = document.getElementById('new-chat-modal');
+// Connect to Socket.IO server
+function initializeSocket() {
+    socket = io('http://localhost:3000', {
+        auth: {
+            token: localStorage.getItem('token')
+        }
+    });
+
+    socket.on('connect', () => {
+        console.log('Connected to Socket.IO server');
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Disconnected from Socket.IO server');
+    });
+
+    // Listen for new messages
+    socket.on('new-message', (message) => {
+        console.log('Received new message:', message);
+        
+        // Only append if we're viewing the conversation the message belongs to
+        if (currentConversationId && message.conversationId === currentConversationId) {
+            appendMessage(message);
+        }
+    });
+
+    // Optional: Typing indicators
+    socket.on('user-typing', (userName) => {
+        showTypingIndicator(userName);
+    });
+
+    socket.on('user-stop-typing', () => {
+        hideTypingIndicator();
+    });
+}
+
+// Join a conversation room
+function joinConversation(conversationId) {
+    if (socket && conversationId) {
+        socket.emit('join-conversation', conversationId);
+    }
+}
+
+// Leave a conversation room
+function leaveConversation(conversationId) {
+    if (socket && conversationId) {
+        socket.emit('leave-conversation', conversationId);
+    }
+}
+
+// Optional: Typing indicator functions
+function showTypingIndicator(userName) {
+    const container = document.getElementById('messages-container');
+    const existingIndicator = document.getElementById('typing-indicator');
+    
+    if (! existingIndicator) {
+        const indicator = document.createElement('div');
+        indicator.id = 'typing-indicator';
+        indicator.className = 'typing-indicator';
+        indicator.textContent = `${userName} is typing...`;
+        container.appendChild(indicator);
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+function hideTypingIndicator() {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+// Modified event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('signup-form');
+    const loginForm = document.getElementById('login-form');
     const newChatBtn = document.getElementById('new-chat-btn');
-    const closeModal = document.getElementById('close-modal');
+    const closeModalBtn = document.getElementById('close-modal');
     const searchBtn = document.getElementById('search-submit-btn');
-    const searchInput = document.getElementById('user-search-input');
-    const resultsList = document.getElementById('search-results-list');
     const sendBtn = document.getElementById('send-btn');
     const messageInput = document.getElementById('message-input');
     const chatList = document.getElementById('chats-list');
 
-    if(signUp){
-        signUp.addEventListener('submit', handleFormSubmit)
+    // Initialize Socket.IO if user is authenticated
+    const token = localStorage.getItem('token');
+    if (token) {
+        initializeSocket();
     }
-    if(logIn){
-        logIn.addEventListener('submit', loginFormSubmit)
+
+    if (form) {
+        form.addEventListener('submit', handleFormSubmit);
     }
-    if(newChatBtn){
-        newChatBtn.onclick = () => {
-            modal.style.display = "flex";
-            searchInput.focus();
-        }
+    if (loginForm) {
+        loginForm.addEventListener('submit', loginFormSubmit);
     }
-    if(closeModal){
-        closeModal.onclick = () => {
-            modal.style.display = "none";
-            resultsList.innerHTML = '';
-        }
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', () => {
+            document.getElementById('new-chat-modal').style.display = "block";
+        });
     }
-    if(searchBtn){
-        searchBtn.addEventListener('click', searchResults)
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+            document.getElementById('new-chat-modal').style.display = "none";
+        });
     }
-    if(sendBtn){
-        sendBtn.addEventListener('click', sendMessage)
+    if (searchBtn) {
+        searchBtn.addEventListener('click', searchResults);
     }
-    if(messageInput){
+    if (sendBtn) {
+        sendBtn.addEventListener('click', sendMessage);
+    }
+    if (messageInput) {
         messageInput.addEventListener('keypress', (e) => {
-            if(e.key === 'Enter'){
+            if (e.key === 'Enter') {
                 sendMessage();
             }
-        })
+        });
+
+        // Optional: Emit typing events
+        let typingTimeout;
+        messageInput.addEventListener('input', () => {
+            if (currentConversationId && socket) {
+                socket.emit('typing', {
+                    conversationId: currentConversationId,
+                    userName: 'You'
+                });
+
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    socket.emit('stop-typing', {
+                        conversationId: currentConversationId
+                    });
+                }, 1000);
+            }
+        });
     }
 
-    if(chatList){
+    if (chatList) {
         loadUserConversations();
-        initializeWebSocket(); 
     }
-})
-
-function initializeWebSocket() {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    ws = new WebSocket('ws://localhost:3000');
-
-    ws.onopen = () => {
-        console.log('WebSocket connected');
-        ws.send(JSON.stringify({
-            type: 'auth',
-            token: token
-        }));
-    };
-
-    ws.onmessage = (event) => {
-        try {
-            const message = JSON.parse(event.data);
-            
-            if (message.type === 'auth') {
-                console.log('WebSocket authentication:', message.status);
-            }
-            
-            if (message.type === 'new_message') {
-                const newMessage = message.data;
-                
-                if (newMessage.conversationId === currentConversationId) {
-                    appendMessage(newMessage);
-                }
-            }
-        } catch (error) {
-            console.error('Error handling WebSocket message:', error);
-        }
-    };
-
-    ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        setTimeout(initializeWebSocket, 3000);
-    };
-
-    ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-    };
-}
+});
 
 async function handleFormSubmit(event) {
     event.preventDefault();
+    clearError();
 
-    const data = {
-        name: event.target.username.value,
-        phone: event.target.phone.value,
-        email: event.target.email.value,
-        password: event.target.password.value
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const password = document.getElementById('password').value.trim();
+
+    if (!name || !email || !phone || ! password) {
+        displayError("All fields are required.");
+        return;
     }
 
     try {
-        await axios.post('http://localhost:3000/user/sign-up', data)
-            .then(response => {
-                console.log(response.data);
-                alert('User signed up successfully!');
-                clearError();
-                document.getElementById('signupForm').reset();
-            })
-            .catch(error => {
-                console.error('Sign-up error', error);
-                displayError(error.response.data.message);
-                return;
-            });
+        const response = await axios.post('http://localhost:3000/user/signup', {
+            name, email, phone, password
+        });
+        alert('Signup successful! Please login.');
+        window.location.href = 'loginPage.html';
     } catch (error) {
-        console.error('Form submit request error', error);
+        if (error.response && error.response.data) {
+            displayError(error.response.data.message || 'Signup failed.');
+        } else {
+            displayError('An error occurred.Please try again.');
+        }
     }
 }
 
 function displayError(message) {
-    const errorDiv = document.getElementById('message');
-    errorDiv.innerText = message;
-    errorDiv.style.display = 'block';
+    const errorDiv = document.getElementById('error-message');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
 }
 
 function clearError() {
-    const errorDiv = document.getElementById('message');
-    errorDiv.innerText = '';
-    errorDiv.style.display = 'none';
+    const errorDiv = document.getElementById('error-message');
+    if (errorDiv) {
+        errorDiv.textContent = '';
+        errorDiv.style.display = 'none';
+    }
 }
 
 async function loginFormSubmit(event) {
     event.preventDefault();
+    clearError();
 
-    const data = {
-        email: event.target.email.value,
-        password: event.target.password.value
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+
+    if (! email || !password) {
+        displayError("All fields are required.");
+        return;
     }
 
     try {
-        await axios.post('http://localhost:3000/user/sign-in', data)
-            .then(response => {
-                const token = response.data.token;
-                localStorage.setItem('token', token);
-                chatPage();
-            })
-            .catch(error => {
-                console.error('Sign-in error', error);
-                displayError(error.response.data.message);
-                return;
-            });
+        const response = await axios.post('http://localhost:3000/user/login', {
+            email, password
+        });
+
+        const token = response.data.token;
+        localStorage.setItem('token', token);
+
+        // Initialize Socket.IO after login
+        initializeSocket();
+
+        chatPage();
     } catch (error) {
-        console.error('Login form submit request error', error);
+        if (error.response && error.response.data) {
+            displayError(error.response.data.message || 'Login failed. Please check your credentials.');
+        } else {
+            displayError('An error occurred.Please try again.');
+        }
     }
 }
 
-function chatPage(){
+function chatPage() {
     window.location.href = 'chatPage.html';
 }
 
 async function searchResults() {
-    const searchInput = document.getElementById('user-search-input');
+    const query = document.getElementById('user-search-input').value.trim();
     const token = localStorage.getItem('token');
-    const query = searchInput.value;
-    if (!query) return;
+
+    if (!query) {
+        alert('Please enter a search term');
+        return;
+    }
 
     try {
-        const response = await axios.get(`http://localhost:3000/user/search?search=${query}`, {headers: { "Authorization": `Bearer ${token}` }});
-        
-        renderSearchResults(response.data);
+        const response = await axios.get(`http://localhost:3000/user/search? query=${query}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        const users = response.data;
+        renderSearchResults(users);
     } catch (error) {
-        console.error("Search failed", error);
-        alert("Error searching for user");
+        console.error('Error searching users:', error);
+        alert('Error searching users');
     }
 }
 
 function renderSearchResults(users) {
     const resultsList = document.getElementById('search-results-list');
     resultsList.innerHTML = '';
-    
-    if(users.length === 0) {
+
+    if (users.length === 0) {
         resultsList.innerHTML = '<li>No users found</li>';
         return;
     }
@@ -203,11 +270,16 @@ async function startChat(user) {
     const modal = document.getElementById('new-chat-modal');
     const token = localStorage.getItem('token');
     modal.style.display = "none";
-    
+
+    // Leave previous conversation room
+    if (currentConversationId) {
+        leaveConversation(currentConversationId);
+    }
+
     try {
-        const response = await axios.post('http://localhost:3000/conversation/create', 
+        const response = await axios.post('http://localhost:3000/conversation/create',
             { participantId: user.id },
-            {headers: { "Authorization": `Bearer ${token}` }}
+            { headers: { "Authorization": `Bearer ${token}` } }
         );
 
         currentConversationId = response.data.conversation.id;
@@ -215,13 +287,16 @@ async function startChat(user) {
 
         document.getElementById('chat-name').textContent = user.name;
         document.getElementById('chat-status').textContent = 'online';
-        
-        if(response.data.isNew){
+
+        // Join the new conversation room
+        joinConversation(currentConversationId);
+
+        if (response.data.isNew) {
             addToSidebar(user, currentConversationId);
         }
 
         await loadMessages(currentConversationId);
-        
+
         console.log(`Chat started with ${user.name}`);
     } catch (error) {
         console.error('Error starting chat:', error);
@@ -230,29 +305,38 @@ async function startChat(user) {
 }
 
 function addToSidebar(user, conversationId) {
-    const chatList = document.getElementById('chats-list');
-    
-    const existingChats = chatList.querySelectorAll('.chat-item');
-    for (let chat of existingChats) {
-        if (chat.dataset.userId == user.id) {
-            console.log(`Chat with ${user.name} already exists in sidebar`);
-            return;
+    const chatsList = document.getElementById('chats-list');
+
+    const chatItem = document.createElement('div');
+    chatItem.className = 'chat-item';
+    chatItem.dataset.conversationId = conversationId;
+
+    chatItem.innerHTML = `
+        <div class="chat-avatar">${user.name.charAt(0).toUpperCase()}</div>
+        <div class="chat-info">
+            <h3 class="chat-name">${user.name}</h3>
+            <p class="chat-last-message">Start chatting...</p>
+        </div>
+    `;
+
+    chatItem.addEventListener('click', () => {
+        // Leave previous conversation
+        if (currentConversationId) {
+            leaveConversation(currentConversationId);
         }
-    }
-    
-    const div = document.createElement('div');
-    div.className = 'chat-item'; 
-    div.textContent = user.name;
-    div.dataset.userId = user.id;
-    div.dataset.conversationId = conversationId;
-    div.onclick = () => {
+
         currentConversationId = conversationId;
         currentChatUser = user;
+
+        // Join new conversation
+        joinConversation(conversationId);
+
         document.getElementById('chat-name').textContent = user.name;
         document.getElementById('chat-status').textContent = 'online';
         loadMessages(conversationId);
-    }; 
-    chatList.appendChild(div);
+    });
+
+    chatsList.appendChild(chatItem);
 }
 
 async function loadUserConversations() {
@@ -261,11 +345,12 @@ async function loadUserConversations() {
 
     try {
         const response = await axios.get('http://localhost:3000/conversation/list', {
-            headers: { "Authorization": `Bearer ${token}` }});
+            headers: { "Authorization": `Bearer ${token}` }
+        });
 
         const conversations = response.data;
         conversations.forEach(conv => {
-            if(conv.participant){
+            if (conv.participant) {
                 addToSidebar(conv.participant, conv.conversationId);
             }
         });
@@ -278,7 +363,7 @@ async function loadUserConversations() {
 
 async function loadMessages(conversationId) {
     const token = localStorage.getItem('token');
-    
+
     try {
         const response = await axios.get(`http://localhost:3000/messages/${conversationId}`, {
             headers: { "Authorization": `Bearer ${token}` }
@@ -301,19 +386,18 @@ function displayMessages(messages) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const currentUserId = payload.id;
 
-        messageDiv.className = msg.senderId === currentUserId ?   'message sent' : 'message received';
-        
+        messageDiv.className = msg.senderId === currentUserId ?  'message sent' : 'message received';
+
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
         contentDiv.textContent = msg.content;
-        
+
         messageDiv.appendChild(contentDiv);
         container.appendChild(messageDiv);
     });
 
     container.scrollTop = container.scrollHeight;
 }
-
 
 async function sendMessage() {
     const messageInput = document.getElementById('message-input');
@@ -326,7 +410,7 @@ async function sendMessage() {
     }
 
     try {
-        const response = await axios.post('http://localhost:3000/messages/send',
+        await axios.post('http://localhost:3000/messages/send',
             {
                 conversationId: currentConversationId,
                 content: content
@@ -336,24 +420,9 @@ async function sendMessage() {
             }
         );
 
-        const newMessage = response.data.data;
-        appendMessage(newMessage);
-
-        // Send message via WebSocket to receiver
-        if (ws && ws.readyState === WebSocket.OPEN && currentChatUser) {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            ws.send(JSON.stringify({
-                type: 'new_message',
-                conversationId: currentConversationId,
-                senderId: payload.id,
-                receiverId: currentChatUser.id,
-                content: content,
-                messageData: newMessage
-            }));
-        }
-
+        // No need to manually append - Socket.IO will handle it
         messageInput.value = '';
-        
+
     } catch (error) {
         console.error('Error sending message:', error);
         alert('Error sending message');
@@ -368,11 +437,11 @@ function appendMessage(message) {
 
     const messageDiv = document.createElement('div');
     messageDiv.className = message.senderId === currentUserId ? 'message sent' : 'message received';
-    
+
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
     contentDiv.textContent = message.content;
-    
+
     messageDiv.appendChild(contentDiv);
     container.appendChild(messageDiv);
 
