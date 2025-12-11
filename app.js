@@ -39,6 +39,16 @@ app.use('/user', userRouter);
 app.use('/conversation', conversationRouter);
 app.use('/messages', messagesRouter);
 
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (token) {
+    socket.token = token;
+    next();
+  } else {
+    next(new Error('Authentication error'));
+  }
+});
+
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
