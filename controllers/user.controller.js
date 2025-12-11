@@ -49,6 +49,7 @@ export const signIn = async (req, res) => {
         const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 
         res.status(200).json({ message: "Sign-in successful", user, token });
+
     } catch (error) {
         res.status(500).json({ message: "Sign-in error", error: error.message });
     }

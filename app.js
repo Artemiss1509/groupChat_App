@@ -14,7 +14,6 @@ import db from "./utils/DB.connection.js";
 const app = express();
 const httpServer = createServer(app);
 
-// Initialize Socket.IO
 const io = new Server(httpServer, {
   cors: {
     origin: "http://127.0.0.1:5500",
@@ -34,30 +33,29 @@ app.use(
 
 app.use(express.json());
 
-// Make io accessible to routes
 app.set('io', io);
 
 app.use('/user', userRouter);
 app.use('/conversation', conversationRouter);
 app.use('/messages', messagesRouter);
 
-// Socket.IO connection handling
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // Join conversation rooms
+  
   socket.on('join-conversation', (conversationId) => {
     socket.join(`conversation-${conversationId}`);
     console.log(`Socket ${socket.id} joined conversation-${conversationId}`);
   });
 
-  // Leave conversation rooms
+  
   socket.on('leave-conversation', (conversationId) => {
     socket.leave(`conversation-${conversationId}`);
     console.log(`Socket ${socket.id} left conversation-${conversationId}`);
   });
 
-  // Handle typing indicators (optional)
+  
   socket.on('typing', ({ conversationId, userName }) => {
     socket.to(`conversation-${conversationId}`).emit('user-typing', userName);
   });
@@ -71,7 +69,7 @@ io.on('connection', (socket) => {
   });
 });
 
-db.sync({ alter: true }).then(() => {
+db.sync().then(() => {
   console.log('Database synced');
   httpServer.listen(3000, () => {
     console.log('Server is running on port 3000');

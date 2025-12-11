@@ -1,9 +1,7 @@
-// Initialize Socket.IO connection
 let socket = null;
 let currentConversationId = null;
 let currentChatUser = null;
 
-// Connect to Socket.IO server
 function initializeSocket() {
     socket = io('http://localhost:3000', {
         auth: {
@@ -19,17 +17,14 @@ function initializeSocket() {
         console.log('Disconnected from Socket.IO server');
     });
 
-    // Listen for new messages
     socket.on('new-message', (message) => {
         console.log('Received new message:', message);
         
-        // Only append if we're viewing the conversation the message belongs to
         if (currentConversationId && message.conversationId === currentConversationId) {
             appendMessage(message);
         }
     });
 
-    // Optional: Typing indicators
     socket.on('user-typing', (userName) => {
         showTypingIndicator(userName);
     });
@@ -39,21 +34,18 @@ function initializeSocket() {
     });
 }
 
-// Join a conversation room
 function joinConversation(conversationId) {
     if (socket && conversationId) {
         socket.emit('join-conversation', conversationId);
     }
 }
 
-// Leave a conversation room
 function leaveConversation(conversationId) {
     if (socket && conversationId) {
         socket.emit('leave-conversation', conversationId);
     }
 }
 
-// Optional: Typing indicator functions
 function showTypingIndicator(userName) {
     const container = document.getElementById('messages-container');
     const existingIndicator = document.getElementById('typing-indicator');
@@ -75,10 +67,9 @@ function hideTypingIndicator() {
     }
 }
 
-// Modified event listeners
 document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('signup-form');
-    const loginForm = document.getElementById('login-form');
+    const form = document.getElementById('signupForm');
+    const loginForm = document.getElementById('loginForm');
     const newChatBtn = document.getElementById('new-chat-btn');
     const closeModalBtn = document.getElementById('close-modal');
     const searchBtn = document.getElementById('search-submit-btn');
@@ -86,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageInput = document.getElementById('message-input');
     const chatList = document.getElementById('chats-list');
 
-    // Initialize Socket.IO if user is authenticated
     const token = localStorage.getItem('token');
     if (token) {
         initializeSocket();
@@ -121,15 +111,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Optional: Emit typing events
         let typingTimeout;
         messageInput.addEventListener('input', () => {
             if (currentConversationId && socket) {
                 socket.emit('typing', {
                     conversationId: currentConversationId,
-                    userName: 'You'
+                    userName: localStorage.getItem('user') || 'Someone'
                 });
 
+                console.log("User is typing...", localStorage.getItem('user'));
                 clearTimeout(typingTimeout);
                 typingTimeout = setTimeout(() => {
                     socket.emit('stop-typing', {
@@ -160,7 +150,7 @@ async function handleFormSubmit(event) {
     }
 
     try {
-        const response = await axios.post('http://localhost:3000/user/signup', {
+        const response = await axios.post('http://localhost:3000/user/sign-up', {
             name, email, phone, password
         });
         alert('Signup successful! Please login.');
@@ -175,7 +165,7 @@ async function handleFormSubmit(event) {
 }
 
 function displayError(message) {
-    const errorDiv = document.getElementById('error-message');
+    const errorDiv = document.getElementById('message');
     if (errorDiv) {
         errorDiv.textContent = message;
         errorDiv.style.display = 'block';
@@ -183,7 +173,7 @@ function displayError(message) {
 }
 
 function clearError() {
-    const errorDiv = document.getElementById('error-message');
+    const errorDiv = document.getElementById('message');
     if (errorDiv) {
         errorDiv.textContent = '';
         errorDiv.style.display = 'none';
@@ -203,17 +193,17 @@ async function loginFormSubmit(event) {
     }
 
     try {
-        const response = await axios.post('http://localhost:3000/user/login', {
+        const response = await axios.post('http://localhost:3000/user/sign-in', {
             email, password
         });
 
         const token = response.data.token;
+        const user = JSON.stringify(response.data.user.name);
         localStorage.setItem('token', token);
-
-        // Initialize Socket.IO after login
+        localStorage.setItem('user', user);
         initializeSocket();
-
         chatPage();
+        
     } catch (error) {
         if (error.response && error.response.data) {
             displayError(error.response.data.message || 'Login failed. Please check your credentials.');
@@ -271,7 +261,6 @@ async function startChat(user) {
     const token = localStorage.getItem('token');
     modal.style.display = "none";
 
-    // Leave previous conversation room
     if (currentConversationId) {
         leaveConversation(currentConversationId);
     }
@@ -283,12 +272,11 @@ async function startChat(user) {
         );
 
         currentConversationId = response.data.conversation.id;
-        currentChatUser = user;
+        //currentChatUser = user;
 
         document.getElementById('chat-name').textContent = user.name;
         document.getElementById('chat-status').textContent = 'online';
 
-        // Join the new conversation room
         joinConversation(currentConversationId);
 
         if (response.data.isNew) {
@@ -315,20 +303,18 @@ function addToSidebar(user, conversationId) {
         <div class="chat-avatar">${user.name.charAt(0).toUpperCase()}</div>
         <div class="chat-info">
             <h3 class="chat-name">${user.name}</h3>
-            <p class="chat-last-message">Start chatting...</p>
+            <p id="chat-last-message">Chat</p>
         </div>
     `;
 
     chatItem.addEventListener('click', () => {
-        // Leave previous conversation
         if (currentConversationId) {
             leaveConversation(currentConversationId);
         }
 
         currentConversationId = conversationId;
-        currentChatUser = user;
+        //currentChatUser = user;
 
-        // Join new conversation
         joinConversation(conversationId);
 
         document.getElementById('chat-name').textContent = user.name;
@@ -350,7 +336,7 @@ async function loadUserConversations() {
 
         const conversations = response.data;
         conversations.forEach(conv => {
-            if (conv.participant) {
+            if (conv.participant && conv.lastMessage) {
                 addToSidebar(conv.participant, conv.conversationId);
             }
         });
@@ -370,6 +356,11 @@ async function loadMessages(conversationId) {
         });
 
         const messages = response.data;
+        // console.log('messages loaded', messages[messages.length - 1].content);
+        // document.getElementById('chat-last-message').textContent = messages[messages.length - 1].content;
+        const user = JSON.parse(localStorage.getItem('user'));
+        currentChatUser = user
+        console.log('Loaded messages:', messages);
         displayMessages(messages);
     } catch (error) {
         console.error('Error loading messages:', error);
@@ -420,7 +411,6 @@ async function sendMessage() {
             }
         );
 
-        // No need to manually append - Socket.IO will handle it
         messageInput.value = '';
 
     } catch (error) {

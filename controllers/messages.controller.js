@@ -31,7 +31,6 @@ export const sendMessage = async (req, res) => {
             senderId,
             conversationId,
             content
-            // REMOVED: timestamp: new Date() - Sequelize handles this automatically now
         });
 
         const messageWithSender = await Messages.findByPk(newMessage.id, {
@@ -45,11 +44,6 @@ export const sendMessage = async (req, res) => {
         io.to(`conversation-${conversationId}`). emit('new-message', messageWithSender);
 
         res. status(201).json({ 
-            message: "Message sent successfully", 
-            data: messageWithSender 
-        });
-
-        res.status(201).json({ 
             message: "Message sent successfully", 
             data: messageWithSender 
         });
