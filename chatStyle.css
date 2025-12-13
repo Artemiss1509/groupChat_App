@@ -324,3 +324,106 @@ body {
     font-style: italic;
     margin-left: 12px;
 }
+/* Add to your existing CSS */
+
+/* Unread indicator */
+.unread-indicator {
+    width: 12px;
+    height: 12px;
+    background-color: #ff3b30;
+    border-radius:  50%;
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.chat-item {
+    position: relative;
+}
+
+/* Selected users container */
+.selected-users {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin:  12px 0;
+    min-height: 40px;
+    padding: 8px;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+}
+
+.selected-user-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background-color: #075e54;
+    color: white;
+    border-radius: 16px;
+    font-size:  13px;
+}
+
+.selected-user-tag .remove-user {
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+/* Search results with checkboxes */
+.results-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    cursor: pointer;
+}
+
+.results-list input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+/* Modal actions */
+.modal-actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.create-chat-btn {
+    padding: 10px 24px;
+    background-color:  #075e54;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.create-chat-btn:hover {
+    background-color:  #064e47;
+}
+
+.create-chat-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* Last message preview */
+.last-message {
+    font-size: 13px;
+    color: #65676b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 4px;
+}
+
+.last-message.unread {
+    font-weight: 600;
+    color: #000;
+}

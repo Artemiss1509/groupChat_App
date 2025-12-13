@@ -7,6 +7,7 @@ import messagesRouter from './routes/messages.routes.js';
 import './models/user.model.js';
 import './models/messages.model.js';
 import './models/conversation.model.js';
+import './models/messageReadStatus.model.js';
 import './models/associations.js';
 import db from "./utils/DB.connection.js";
 import { socketIO } from './utils/socket-io.js';

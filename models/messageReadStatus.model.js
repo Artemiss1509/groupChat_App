@@ -1,15 +1,23 @@
 import { Sequelize, DataTypes } from "sequelize";
 import sequelize from "../utils/DB.connection.js";
-import Conversation from "./conversation.model.js";
+import Messages from "./messages.model.js";
 import Users from "./user.model.js";
 
-const Messages = sequelize.define('Message', {
+const MessageReadStatus = sequelize.define('MessageReadStatus', {
     id: {
         type: DataTypes.INTEGER,
         autoIncrement: true,
         primaryKey: true
     },
-    senderId: {
+    messageId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model:  Messages,
+            key: 'id'
+        }
+    },
+    userId: {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
@@ -17,25 +25,18 @@ const Messages = sequelize.define('Message', {
             key: 'id'
         }
     },
-    conversationId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: Conversation,
-            key: 'id'
-        }
-    },
-    content: {
-        type: DataTypes.TEXT,
-        allowNull: false
-    },
-    isRead: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
+    readAt: {
+        type: DataTypes.DATE,
+        defaultValue: Sequelize.NOW
     }
 }, {
-    timestamps: true,
-    updatedAt: false
+    timestamps: false,
+    indexes: [
+        {
+            unique: true,
+            fields: ['messageId', 'userId']
+        }
+    ]
 });
 
-export default Messages;
+export default MessageReadStatus;

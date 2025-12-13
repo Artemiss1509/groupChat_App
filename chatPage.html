@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<! DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -12,7 +12,7 @@
 <body>
     <div class="app-container">
 
-        <!-- Sidebar: Contacts/Chats List -->
+        <!-- Sidebar:  Contacts/Chats List -->
         <aside class="sidebar">
             <!-- Header -->
             <header class="sidebar-header">
@@ -59,21 +59,33 @@
         </main>
 
     </div>
+    
+    <!-- New Chat Modal with Multi-Select -->
     <div id="new-chat-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <span id="close-modal" class="close">&times;</span>
             <h2>Start New Chat</h2>
 
             <div class="search-group">
-                <input type="text" id="user-search-input" placeholder="Search by email or phone...">
+                <input type="text" id="user-search-input" name="user-search" placeholder="Search by email or phone... ">
                 <button id="search-submit-btn">Search</button>
             </div>
 
+            <!-- Selected Users Display -->
+            <div id="selected-users-container" class="selected-users">
+                <!-- Selected users will appear here -->
+            </div>
+
             <ul id="search-results-list" class="results-list">
-                <!-- Results will appear here -->
+                <!-- Results will appear here with checkboxes -->
             </ul>
+
+            <div class="modal-actions">
+                <button id="create-chat-btn" class="create-chat-btn">Start Chat</button>
+            </div>
         </div>
     </div>
+    
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="script.js"></script>

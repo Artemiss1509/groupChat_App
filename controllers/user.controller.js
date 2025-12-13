@@ -59,6 +59,7 @@ export const searchUsers = async (req, res) => {
     try {
         const { search } = req.query;
         const currentUserId = req.user.id;
+        console.log('Search query received:', search);
 
         const users = await Users.findAll({
             where: {

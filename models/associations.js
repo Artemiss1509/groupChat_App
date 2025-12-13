@@ -1,6 +1,7 @@
 import Users from "./user.model.js";
 import Conversation from "./conversation.model.js";
 import Messages from "./messages.model.js";
+import MessageReadStatus from "./messageReadStatus.model.js";
 
 // 1. Many-to-Many: Users belong to many Conversations
 Users.belongsToMany(Conversation, { through: 'ConversationParticipants' });
@@ -13,3 +14,10 @@ Messages.belongsTo(Conversation, { foreignKey: 'conversationId' });
 // 3. One-to-Many: A User sends many Messages
 Users.hasMany(Messages, { foreignKey: 'senderId' });
 Messages.belongsTo(Users, { foreignKey: 'senderId' });
+
+// 4. Message Read Status
+Messages.hasMany(MessageReadStatus, { foreignKey: 'messageId' });
+MessageReadStatus.belongsTo(Messages, { foreignKey: 'messageId' });
+
+Users.hasMany(MessageReadStatus, { foreignKey: 'userId' });
+MessageReadStatus.belongsTo(Users, { foreignKey:  'userId' });

@@ -1,6 +1,7 @@
 let socket = null;
 let currentConversationId = null;
 let currentChatUser = null;
+let selectedUsers = [];
 
 function initializeSocket() {
     socket = io('http://localhost:3000', {
@@ -22,6 +23,16 @@ function initializeSocket() {
         
         if (currentConversationId && message.conversationId === currentConversationId) {
             appendMessage(message);
+            markMessagesAsRead(currentConversationId);
+        }
+    });
+
+    socket.on('conversation-update', (data) => {
+        const token = localStorage.getItem('token');
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        if (data.userId === payload.id) {
+            loadUserConversations(); 
         }
     });
 
@@ -37,6 +48,7 @@ function initializeSocket() {
 function joinConversation(conversationId) {
     if (socket && conversationId) {
         socket.emit('join-conversation', conversationId);
+        markMessagesAsRead(conversationId);
     }
 }
 
@@ -48,16 +60,19 @@ function leaveConversation(conversationId) {
 
 function showTypingIndicator(userName) {
     const container = document.getElementById('messages-container');
-    const existingIndicator = document.getElementById('typing-indicator');
+    let indicator = document.getElementById('typing-indicator');
     
-    if (! existingIndicator) {
-        const indicator = document.createElement('div');
+    if (!indicator) {
+        indicator = document.createElement('div');
         indicator.id = 'typing-indicator';
         indicator.className = 'typing-indicator';
         indicator.textContent = `${userName} is typing...`;
         container.appendChild(indicator);
-        container.scrollTop = container.scrollHeight;
+    } else {
+        indicator.textContent = `${userName} is typing...`;
     }
+    
+    container.scrollTop = container.scrollHeight;
 }
 
 function hideTypingIndicator() {
@@ -73,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const newChatBtn = document.getElementById('new-chat-btn');
     const closeModalBtn = document.getElementById('close-modal');
     const searchBtn = document.getElementById('search-submit-btn');
+    const createChatBtn = document.getElementById('create-chat-btn');
     const sendBtn = document.getElementById('send-btn');
     const messageInput = document.getElementById('message-input');
     const chatList = document.getElementById('chats-list');
@@ -90,16 +106,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (newChatBtn) {
         newChatBtn.addEventListener('click', () => {
+            selectedUsers = [];
+            updateSelectedUsersDisplay();
             document.getElementById('new-chat-modal').style.display = "block";
         });
     }
     if (closeModalBtn) {
         closeModalBtn.addEventListener('click', () => {
             document.getElementById('new-chat-modal').style.display = "none";
+            selectedUsers = [];
         });
     }
     if (searchBtn) {
         searchBtn.addEventListener('click', searchResults);
+    }
+    if (createChatBtn) {
+        createChatBtn.addEventListener('click', createChat);
     }
     if (sendBtn) {
         sendBtn.addEventListener('click', sendMessage);
@@ -119,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     userName: localStorage.getItem('user') || 'Someone'
                 });
 
-                console.log("User is typing...", localStorage.getItem('user'));
                 clearTimeout(typingTimeout);
                 typingTimeout = setTimeout(() => {
                     socket.emit('stop-typing', {
@@ -139,10 +160,10 @@ async function handleFormSubmit(event) {
     event.preventDefault();
     clearError();
 
-    const name = document.getElementById('name').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const phone = document.getElementById('phone').value.trim();
-    const password = document.getElementById('password').value.trim();
+    const name = event.target.username.value.trim();
+    const email = event.target.email.value.trim();
+    const phone = event.target.phone.value.trim();
+    const password = event.target.password.value.trim();
 
     if (!name || !email || !phone || ! password) {
         displayError("All fields are required.");
@@ -151,21 +172,21 @@ async function handleFormSubmit(event) {
 
     try {
         const response = await axios.post('http://localhost:3000/user/sign-up', {
-            name, email, phone, password
+            name,
+            phone,
+            email,
+            password
         });
-        alert('Signup successful! Please login.');
+
+        alert('Sign up successful!  Redirecting to login...');
         window.location.href = 'loginPage.html';
     } catch (error) {
-        if (error.response && error.response.data) {
-            displayError(error.response.data.message || 'Signup failed.');
-        } else {
-            displayError('An error occurred.Please try again.');
-        }
+        displayError(error.response?.data?.message || 'Sign up failed');
     }
 }
 
 function displayError(message) {
-    const errorDiv = document.getElementById('message');
+    const errorDiv = document.getElementById('error-message');
     if (errorDiv) {
         errorDiv.textContent = message;
         errorDiv.style.display = 'block';
@@ -173,9 +194,8 @@ function displayError(message) {
 }
 
 function clearError() {
-    const errorDiv = document.getElementById('message');
+    const errorDiv = document.getElementById('error-message');
     if (errorDiv) {
-        errorDiv.textContent = '';
         errorDiv.style.display = 'none';
     }
 }
@@ -184,41 +204,28 @@ async function loginFormSubmit(event) {
     event.preventDefault();
     clearError();
 
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value.trim();
-
-    if (! email || !password) {
-        displayError("All fields are required.");
-        return;
-    }
+    const email = event.target.email.value.trim();
+    const password = event.target.password.value.trim();
 
     try {
         const response = await axios.post('http://localhost:3000/user/sign-in', {
-            email, password
+            email,
+            password
         });
 
-        const token = response.data.token;
-        const user = JSON.stringify(response.data.user.name);
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', user);
-        initializeSocket();
-        chatPage();
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', response.data.user.name);
         
+        alert('Login successful! ');
+        window.location.href = 'chatPage.html';
     } catch (error) {
-        if (error.response && error.response.data) {
-            displayError(error.response.data.message || 'Login failed. Please check your credentials.');
-        } else {
-            displayError('An error occurred.Please try again.');
-        }
+        displayError(error.response?.data?.message || 'Login failed');
     }
-}
-
-function chatPage() {
-    window.location.href = 'chatPage.html';
 }
 
 async function searchResults() {
     const query = document.getElementById('user-search-input').value.trim();
+    console.log('Searching for users with query:', query);
     const token = localStorage.getItem('token');
 
     if (!query) {
@@ -227,7 +234,7 @@ async function searchResults() {
     }
 
     try {
-        const response = await axios.get(`http://localhost:3000/user/search? query=${query}`, {
+        const response = await axios.get(`http://localhost:3000/user/search?search=${query}`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
 
@@ -250,15 +257,76 @@ function renderSearchResults(users) {
 
     users.forEach(user => {
         const li = document.createElement('li');
-        li.textContent = `${user.name} (${user.email})`;
-        li.onclick = () => startChat(user);
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = user.id;
+        checkbox.id = `user-${user.id}`;
+        checkbox.checked = selectedUsers.some(u => u.id === user.id);
+        
+        checkbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                selectedUsers.push(user);
+            } else {
+                selectedUsers = selectedUsers.filter(u => u.id !== user.id);
+            }
+            updateSelectedUsersDisplay();
+        });
+
+        const label = document.createElement('label');
+        label.htmlFor = `user-${user.id}`;
+        label.textContent = `${user.name} (${user.email})`;
+        label.style.cursor = 'pointer';
+        label.style.flex = '1';
+
+        li.appendChild(checkbox);
+        li.appendChild(label);
         resultsList.appendChild(li);
     });
 }
 
-async function startChat(user) {
+function updateSelectedUsersDisplay() {
+    const container = document.getElementById('selected-users-container');
+    const createBtn = document.getElementById('create-chat-btn');
+    
+    container.innerHTML = '';
+    
+    if (selectedUsers.length === 0) {
+        container.innerHTML = '<span style="color: #999;">No users selected</span>';
+        createBtn.disabled = true;
+    } else {
+        createBtn.disabled = false;
+        selectedUsers.forEach(user => {
+            const tag = document.createElement('div');
+            tag.className = 'selected-user-tag';
+            tag.innerHTML = `
+                ${user.name}
+                <span class="remove-user" data-user-id="${user.id}">×</span>
+            `;
+            
+            tag.querySelector('.remove-user').addEventListener('click', () => {
+                selectedUsers = selectedUsers.filter(u => u.id !== user.id);
+                updateSelectedUsersDisplay();
+                
+                // Uncheck the checkbox in results
+                const checkbox = document.getElementById(`user-${user.id}`);
+                if (checkbox) checkbox.checked = false;
+            });
+            
+            container.appendChild(tag);
+        });
+    }
+}
+
+async function createChat() {
     const modal = document.getElementById('new-chat-modal');
     const token = localStorage.getItem('token');
+
+    if (selectedUsers.length === 0) {
+        alert('Please select at least one user');
+        return;
+    }
+
     modal.style.display = "none";
 
     if (currentConversationId) {
@@ -266,45 +334,64 @@ async function startChat(user) {
     }
 
     try {
+        const participantIds = selectedUsers.map(u => u.id);
+        
         const response = await axios.post('http://localhost:3000/conversation/create',
-            { participantId: user.id },
+            { participantIds },
             { headers: { "Authorization": `Bearer ${token}` } }
         );
 
         currentConversationId = response.data.conversation.id;
-        //currentChatUser = user;
 
-        document.getElementById('chat-name').textContent = user.name;
+        let chatName;
+        if (selectedUsers.length === 1) {
+            chatName = selectedUsers[0].name;
+        } else {
+            chatName = selectedUsers.map(u => u.name).join(', ');
+        }
+
+        document.getElementById('chat-name').textContent = chatName;
         document.getElementById('chat-status').textContent = 'online';
 
         joinConversation(currentConversationId);
 
         if (response.data.isNew) {
-            addToSidebar(user, currentConversationId);
+            await loadUserConversations();
         }
 
         await loadMessages(currentConversationId);
 
-        console.log(`Chat started with ${user.name}`);
+        selectedUsers = [];
+        console.log(`Chat started with ${chatName}`);
     } catch (error) {
         console.error('Error starting chat:', error);
         alert('Error starting conversation');
     }
 }
 
-function addToSidebar(user, conversationId) {
+function addToSidebar(conversation) {
     const chatsList = document.getElementById('chats-list');
+    
+    const existingChat = chatsList.querySelector(`[data-conversation-id="${conversation.conversationId}"]`);
+    if (existingChat) {
+        existingChat.remove();
+    }
 
     const chatItem = document.createElement('div');
     chatItem.className = 'chat-item';
-    chatItem.dataset.conversationId = conversationId;
+    chatItem.dataset.conversationId = conversation.conversationId;
 
+    const displayName = conversation.name;
+    const lastMessageText = conversation.lastMessage ?  conversation.lastMessage.content : 'No messages yet';
+    const unreadClass = conversation.hasUnreadMessages ? 'unread' :  '';
+    
     chatItem.innerHTML = `
-        <div class="chat-avatar">${user.name.charAt(0).toUpperCase()}</div>
+        <div class="chat-avatar">${displayName.charAt(0).toUpperCase()}</div>
         <div class="chat-info">
-            <h3 class="chat-name">${user.name}</h3>
-            <p id="chat-last-message">Chat</p>
+            <h3 class="chat-name">${displayName}</h3>
+            <p class="last-message ${unreadClass}">${lastMessageText}</p>
         </div>
+        ${conversation.hasUnreadMessages ? '<div class="unread-indicator"></div>' : ''}
     `;
 
     chatItem.addEventListener('click', () => {
@@ -312,14 +399,13 @@ function addToSidebar(user, conversationId) {
             leaveConversation(currentConversationId);
         }
 
-        currentConversationId = conversationId;
-        //currentChatUser = user;
+        currentConversationId = conversation.conversationId;
 
-        joinConversation(conversationId);
+        joinConversation(conversation.conversationId);
 
-        document.getElementById('chat-name').textContent = user.name;
+        document.getElementById('chat-name').textContent = displayName;
         document.getElementById('chat-status').textContent = 'online';
-        loadMessages(conversationId);
+        loadMessages(conversation.conversationId);
     });
 
     chatsList.appendChild(chatItem);
@@ -335,10 +421,11 @@ async function loadUserConversations() {
         });
 
         const conversations = response.data;
+        const chatsList = document.getElementById('chats-list');
+        chatsList.innerHTML = '';
+
         conversations.forEach(conv => {
-            if (conv.participant && conv.lastMessage) {
-                addToSidebar(conv.participant, conv.conversationId);
-            }
+            addToSidebar(conv);
         });
 
         console.log('Loaded conversations:', conversations);
@@ -356,11 +443,6 @@ async function loadMessages(conversationId) {
         });
 
         const messages = response.data;
-        // console.log('messages loaded', messages[messages.length - 1].content);
-        // document.getElementById('chat-last-message').textContent = messages[messages.length - 1].content;
-        const user = JSON.parse(localStorage.getItem('user'));
-        currentChatUser = user
-        console.log('Loaded messages:', messages);
         displayMessages(messages);
     } catch (error) {
         console.error('Error loading messages:', error);
@@ -377,11 +459,24 @@ function displayMessages(messages) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         const currentUserId = payload.id;
 
-        messageDiv.className = msg.senderId === currentUserId ?  'message sent' : 'message received';
+        messageDiv.className = msg.senderId === currentUserId ? 'message sent' : 'message received';
 
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        contentDiv.textContent = msg.content;
+        
+        if (msg.senderId !== currentUserId && msg.User) {
+            const senderName = document.createElement('div');
+            senderName.style.fontSize = '11px';
+            senderName.style.fontWeight = 'bold';
+            senderName.style.marginBottom = '4px';
+            senderName.style.color = '#075e54';
+            senderName.textContent = msg.User.name;
+            contentDiv.appendChild(senderName);
+        }
+        
+        const textDiv = document.createElement('div');
+        textDiv.textContent = msg.content;
+        contentDiv.appendChild(textDiv);
 
         messageDiv.appendChild(contentDiv);
         container.appendChild(messageDiv);
@@ -430,10 +525,40 @@ function appendMessage(message) {
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    contentDiv.textContent = message.content;
+    
+    if (message.senderId !== currentUserId && message.User) {
+        const senderName = document.createElement('div');
+        senderName.style.fontSize = '11px';
+        senderName.style.fontWeight = 'bold';
+        senderName.style.marginBottom = '4px';
+        senderName.style.color = '#075e54';
+        senderName.textContent = message.User.name;
+        contentDiv.appendChild(senderName);
+    }
+    
+    const textDiv = document.createElement('div');
+    textDiv.textContent = message.content;
+    contentDiv.appendChild(textDiv);
 
     messageDiv.appendChild(contentDiv);
     container.appendChild(messageDiv);
 
     container.scrollTop = container.scrollHeight;
+    
+    loadUserConversations();
+}
+
+async function markMessagesAsRead(conversationId) {
+    const token = localStorage.getItem('token');
+    
+    try {
+        await axios.post('http://localhost:3000/messages/mark-read',
+            { conversationId },
+            { headers:  { "Authorization": `Bearer ${token}` } }
+        );
+        
+        loadUserConversations();
+    } catch (error) {
+        console.error('Error marking messages as read:', error);
+    }
 }

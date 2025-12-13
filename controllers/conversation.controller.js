@@ -1,48 +1,51 @@
 import Conversation from "../models/conversation.model.js";
 import Users from "../models/user.model.js";
 import Messages from "../models/messages.model.js";
-import { Op } from "sequelize";
-import { Sequelize } from 'sequelize';
+import MessageReadStatus from "../models/messageReadStatus.model.js";
+import { Sequelize } from "sequelize";
 
 export const createOrGetConversation = async (req, res) => {
     try {
         const currentUserId = req.user.id;
-        const { participantId } = req.body;
+        const { participantIds } = req.body; // Now accepts array of participant IDs
 
-        const existingConversation = await Conversation.findOne({
-            where: { type: 'individual' },
-            include: [
-                {
-                    model: Users,
-                    attributes: ['id'],
-                    where: {
-                        id: { [Op.in]: [currentUserId, participantId] }
-                    },
-                    through: { attributes: [] }
-                }
-            ],
-            group: ['Conversation.id'],
-            having: Sequelize.literal('COUNT(User.id) = 2')
+        if (!participantIds || ! Array.isArray(participantIds) || participantIds.length === 0) {
+            return res.status(400).json({ 
+                message: "At least one participant ID is required" 
+            });
+        }
+
+        // All participants including current user
+        const allParticipantIds = [currentUserId, ...participantIds].sort();
+        const conversationType = allParticipantIds.length === 2 ? 'individual' : 'group';
+
+        // Check if conversation already exists with these exact participants
+        const conversations = await Conversation.findAll({
+            include: [{
+                model: Users,
+                attributes: ['id'],
+                through: { attributes: [] }
+            }]
         });
 
-
-        if (existingConversation) {
-            const participants = await existingConversation.getUsers();
-            const participantIds = participants.map(p => p.id).sort();
-            const targetIds = [currentUserId, participantId].sort();
-
-            if (JSON.stringify(participantIds) === JSON.stringify(targetIds)) {
+        // Find existing conversation with exact same participants
+        for (const conv of conversations) {
+            const convParticipantIds = conv.Users.map(u => u.id).sort();
+            if (JSON.stringify(convParticipantIds) === JSON.stringify(allParticipantIds)) {
                 return res.status(200).json({
-                    conversation: existingConversation,
+                    conversation: conv,
                     isNew: false
                 });
             }
         }
+
+        // Create new conversation
         const newConversation = await Conversation.create({
-            type: 'individual'
+            type: conversationType,
+            name: conversationType === 'group' ? req.body.groupName || 'Group Chat' : null
         });
 
-        await newConversation.addUsers([currentUserId, participantId]);
+        await newConversation.addUsers(allParticipantIds);
 
         res.status(201).json({
             conversation: newConversation,
@@ -53,7 +56,7 @@ export const createOrGetConversation = async (req, res) => {
         console.error('Error creating/getting conversation:', error);
         res.status(500).json({
             message: "Error creating conversation",
-            error: error.message
+            error:  error.message
         });
     }
 };
@@ -78,7 +81,11 @@ export const getUserConversations = async (req, res) => {
                     model: Messages,
                     limit: 1,
                     order: [['createdAt', 'DESC']],
-                    attributes: ['id', 'senderId', 'content', 'createdAt']
+                    attributes: ['id', 'senderId', 'content', 'createdAt'],
+                    include: [{
+                        model: MessageReadStatus,
+                        attributes: ['userId', 'readAt']
+                    }]
                 }
             ],
             where: {
@@ -92,17 +99,40 @@ export const getUserConversations = async (req, res) => {
 
         const formattedConversations = await Promise.all(conversations.map(async (conv) => {
             const participants = await conv.getUsers({ attributes: ['id', 'name', 'email'] });
-
-            const otherParticipant = participants.find(p => p.id !== currentUserId) || participants[0] || null;
             const lastMessage = Array.isArray(conv.Messages) && conv.Messages.length ? conv.Messages[0] : null;
+
+            // Check if last message is unread by current user
+            let hasUnreadMessages = false;
+            if (lastMessage) {
+                const readStatus = lastMessage.MessageReadStatuses || [];
+                const currentUserRead = readStatus.find(rs => rs.userId === currentUserId);
+                hasUnreadMessages = ! currentUserRead && lastMessage.senderId !== currentUserId;
+            }
+
+            // For individual chats, show other participant; for groups, show all or group name
+            let displayName;
+            let displayParticipants;
+
+            if (conv.type === 'individual') {
+                const otherParticipant = participants.find(p => p.id !== currentUserId);
+                displayName = otherParticipant ? otherParticipant.name : 'Unknown';
+                displayParticipants = [otherParticipant];
+            } else {
+                displayName = conv.name || participants.map(p => p.name).join(', ');
+                displayParticipants = participants;
+            }
 
             return {
                 conversationId: conv.id,
-                participant: otherParticipant,
+                type: conv.type,
+                name: displayName,
+                participants:  displayParticipants,
                 lastMessage: lastMessage ? {
                     content: lastMessage.content,
+                    senderId: lastMessage.senderId,
                     timestamp: lastMessage.createdAt
                 } : null,
+                hasUnreadMessages,
                 createdAt: conv.createdAt
             };
         }));
