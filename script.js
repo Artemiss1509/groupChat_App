@@ -92,6 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendBtn = document.getElementById('send-btn');
     const messageInput = document.getElementById('message-input');
     const chatList = document.getElementById('chats-list');
+    const mediaBtn = document.getElementById('attach-btn');
+    const mediaInput = document.getElementById('media-input');
 
     const token = localStorage.getItem('token');
     if (token) {
@@ -153,6 +155,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (chatList) {
         loadUserConversations();
+    }
+
+    if (mediaBtn){
+        mediaBtn.addEventListener('click', () => {
+            mediaInput.click();
+        });
+
+        mediaInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (file && currentConversationId) {
+                await uploadMedia(currentConversationId, file);
+                mediaInput.value = '';
+            }
+        });
     }
 });
 
@@ -514,7 +530,7 @@ async function sendMessage() {
     }
 }
 
-function appendMessage(message) {
+async function appendMessage(message) {
     const container = document.getElementById('messages-container');
     const token = localStorage.getItem('token');
     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -535,9 +551,24 @@ function appendMessage(message) {
         senderName.textContent = message.User.name;
         contentDiv.appendChild(senderName);
     }
+    let content = '';
+
+    if (message.mediaUrl) {
+        const mediaUrl = await getMediaUrl(message.mediaUrl);
+        
+        if (message.mediaType === 'image') {
+            content = `<img src="${mediaUrl}" alt="${message.content}" class="message-image">`;
+        } else if (message.mediaType === 'video') {
+            content = `<video src="${mediaUrl}" controls class="message-video"></video>`;
+        } else {
+            content = `<a href="${mediaUrl}" download="${message.content}" class="message-file">📎 ${message.content}</a>`;
+        }
+    } else {
+        content = `<p>${message.content}</p>`;
+    }
     
     const textDiv = document.createElement('div');
-    textDiv.textContent = message.content;
+    textDiv.innerHTML = content;
     contentDiv.appendChild(textDiv);
 
     messageDiv.appendChild(contentDiv);
@@ -560,5 +591,48 @@ async function markMessagesAsRead(conversationId) {
         loadUserConversations();
     } catch (error) {
         console.error('Error marking messages as read:', error);
+    }
+}
+
+async function uploadMedia(conversationId, file) {
+    try {
+        const formData = new FormData();
+        formData.append('media', file);
+        formData.append('conversationId', conversationId);
+
+        const token = localStorage.getItem('token');
+        const response = await axios.post('http://localhost:3000/media/upload', formData, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            }
+        });
+
+        const data = response.data;
+        
+        if (response.status === 201) {
+            console.log('Media uploaded successfully:', data);
+            return data;
+        } else {
+            throw new Error(data.message);
+        }
+    } catch (error) {
+        console.error('Error uploading media:', error);
+        alert('Failed to upload media:  ' + error.message);
+    }
+}
+
+// Function to get media URL
+async function getMediaUrl(fileKey) {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`http://localhost:3000/media/url?fileKey=${fileKey}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        const data = response.data;
+        return data.url;
+    } catch (error) {
+        console.error('Error getting media URL:', error);
+        return null;
     }
 }
