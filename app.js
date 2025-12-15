@@ -5,6 +5,7 @@ import userRouter from './routes/user.routes.js';
 import conversationRouter from './routes/conversation.routes.js';
 import messagesRouter from './routes/messages.routes.js';
 import mediaRouter from './routes/media.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 import './models/user.model.js';
 import './models/messages.model.js';
 import './models/conversation.model.js';
@@ -37,6 +38,7 @@ app.use('/user', userRouter);
 app.use('/conversation', conversationRouter);
 app.use('/messages', messagesRouter);
 app.use('/media', mediaRouter);
+app.use('/ai', aiRoutes);
 
 
 

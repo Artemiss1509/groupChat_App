@@ -3,6 +3,12 @@ let currentConversationId = null;
 let currentChatUser = null;
 let selectedUsers = [];
 
+
+let predictionTimeout = null;
+let lastPredictionText = '';
+let currentSmartReplies = [];
+let lastReceivedMessageId = null;
+
 function initializeSocket() {
     socket = io('http://localhost:3000', {
         auth: {
@@ -136,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         let typingTimeout;
-        messageInput.addEventListener('input', () => {
+        messageInput.addEventListener('input', async (e) => {
             if (currentConversationId && socket) {
                 socket.emit('typing', {
                     conversationId: currentConversationId,
@@ -149,6 +155,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         conversationId: currentConversationId
                     });
                 }, 1000);
+            }
+
+            const text = e.target.value.trim();
+            
+            if (text.length >= 3 && text !== lastPredictionText) {
+                clearTimeout(predictionTimeout);
+                predictionTimeout = setTimeout(async () => {
+                    await fetchPredictions(text);
+                    lastPredictionText = text;
+                }, 500);
+            } else if (text.length < 3) {
+                clearPredictions();
             }
         });
     }
@@ -511,6 +529,10 @@ async function sendMessage() {
     }
 
     try {
+
+        clearPredictions();
+        clearSmartReplies();
+
         await axios.post('http://localhost:3000/messages/send',
             {
                 conversationId: currentConversationId,
@@ -576,6 +598,12 @@ async function appendMessage(message) {
     container.scrollTop = container.scrollHeight;
     
     loadUserConversations();
+
+    if (message.senderId !== currentUserId) {
+        lastReceivedMessageId = message.id;
+        clearPredictions();
+        await fetchSmartReplies(message.id);
+    }
 }
 
 async function markMessagesAsRead(conversationId) {
@@ -633,4 +661,149 @@ async function getMediaUrl(fileKey) {
         console.error('Error getting media URL:', error);
         return null;
     }
+}
+
+async function fetchPredictions(currentText) {
+    if (!currentConversationId) return;
+
+    const token = localStorage.getItem('token');
+    
+    try {
+        const response = await axios.post('http://localhost:3000/ai/predictions',
+            {
+                currentText:  currentText,
+                conversationId: currentConversationId
+            },
+            {
+                headers:  { "Authorization": `Bearer ${token}` }
+            }
+        );
+
+        const { predictions } = response.data;
+        displayPredictions(predictions, currentText);
+    } catch (error) {
+        console.error('Error fetching predictions:', error);
+    }
+}
+
+function displayPredictions(predictions, currentText) {
+    let container = document.getElementById('predictions-container');
+    
+    if (!predictions || predictions.length === 0) {
+        if (container) container.remove();
+        return;
+    }
+
+    if (! container) {
+        container = document.createElement('div');
+        container.id = 'predictions-container';
+        container.className = 'ai-suggestions-container';
+        
+        const chatFooter = document.querySelector('.chat-footer');
+        chatFooter.insertBefore(container, chatFooter.firstChild);
+    }
+
+    const suggestionsHTML = `
+        <div class="predictive-suggestions">
+            ${predictions.map((pred, index) => `
+                <button class="prediction-chip" data-prediction="${pred}">
+                    ${pred}
+                </button>
+            `).join('')}
+        </div>
+    `;
+
+    container.innerHTML = suggestionsHTML;
+
+    container.querySelectorAll('.prediction-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const prediction = chip.dataset.prediction;
+            const messageInput = document.getElementById('message-input');
+            
+            messageInput.value = currentText + ' ' + prediction;
+            messageInput.focus();
+            
+            clearPredictions();
+        });
+    });
+}
+
+function clearPredictions() {
+    const container = document.getElementById('predictions-container');
+    if (container) {
+        container.remove();
+    }
+    lastPredictionText = '';
+}
+
+async function fetchSmartReplies(messageId) {
+    if (!currentConversationId) return;
+
+    const token = localStorage.getItem('token');
+    
+    try {
+        const response = await axios.post('http://localhost:3000/ai/smart-replies',
+            {
+                messageId: messageId,
+                conversationId: currentConversationId
+            },
+            {
+                headers: { "Authorization": `Bearer ${token}` }
+            }
+        );
+
+        const { smartReplies } = response.data;
+        displaySmartReplies(smartReplies);
+    } catch (error) {
+        console.error('Error fetching smart replies:', error);
+    }
+}
+
+function displaySmartReplies(replies) {
+    if (!replies || replies.length === 0) return;
+
+    let container = document.getElementById('smart-replies-container');
+    
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'smart-replies-container';
+        container.className = 'ai-suggestions-container';
+        
+        const chatFooter = document.querySelector('.chat-footer');
+        chatFooter.insertBefore(container, chatFooter.firstChild);
+    }
+
+    const repliesHTML = `
+        <div class="smart-replies-container">
+            ${replies.map((reply, index) => `
+                <button class="smart-reply-btn" data-reply="${reply}">
+                    ${reply}
+                </button>
+            `).join('')}
+        </div>
+    `;
+
+    container.innerHTML = repliesHTML;
+
+    container.querySelectorAll('.smart-reply-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const reply = btn.dataset.reply;
+            const messageInput = document.getElementById('message-input');
+            
+            messageInput.value = reply;
+            clearSmartReplies();
+            
+            await sendMessage();
+        });
+    });
+
+    currentSmartReplies = replies;
+}
+
+function clearSmartReplies() {
+    const container = document.getElementById('smart-replies-container');
+    if (container) {
+        container.remove();
+    }
+    currentSmartReplies = [];
 }

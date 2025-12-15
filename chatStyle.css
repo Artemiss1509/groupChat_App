@@ -465,3 +465,128 @@ body {
     align-items: center;
     gap: 10px;
 }
+
+/* AI Suggestions Container */
+.ai-suggestions-container {
+    position: relative;
+    margin-bottom: 8px;
+}
+
+/* Predictive Text Suggestions */
+.predictive-suggestions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-radius: 12px;
+    overflow-x: auto;
+    animation: slideDown 0.2s ease-out;
+}
+
+.prediction-chip {
+    padding: 6px 12px;
+    background-color: #fff;
+    border:  1px solid #e0e0e0;
+    border-radius: 16px;
+    font-size:  13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap:  4px;
+}
+
+.prediction-chip:hover {
+    background-color: #075e54;
+    color: white;
+    border-color: #075e54;
+    transform: translateY(-2px);
+}
+
+.prediction-chip::before {
+    content: '💡';
+    font-size: 12px;
+}
+
+/* Smart Reply Buttons */
+.smart-replies-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    background-color:  #f0f2f5;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    animation: slideUp 0.3s ease-out;
+}
+
+.smart-reply-btn {
+    padding: 8px 16px;
+    background-color:  #fff;
+    border: 1.5px solid #075e54;
+    border-radius: 20px;
+    color: #075e54;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap:  6px;
+}
+
+.smart-reply-btn:hover {
+    background-color: #075e54;
+    color: white;
+    transform: scale(1.05);
+}
+
+.smart-reply-btn::before {
+    content: '⚡';
+    font-size: 14px;
+}
+
+/* Loading indicator for AI */
+.ai-loading {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #075e54;
+    border-radius: 50%;
+    animation:  spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform:  translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform:  translateY(0);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.chat-footer {
+    padding: 12px;
+    background-color:  #fff;
+    border-top: 1px solid #e5e5e5;
+}
