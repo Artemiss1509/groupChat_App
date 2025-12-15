@@ -10,8 +10,10 @@ import './models/messages.model.js';
 import './models/conversation.model.js';
 import './models/messageReadStatus.model.js';
 import './models/associations.js';
+import './models/archivedMessages.model.js';
 import db from "./utils/DB.connection.js";
 import { socketIO } from './utils/socket-io.js';
+import { initializeCronJobs } from './utils/cronJobs.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -38,8 +40,10 @@ app.use('/media', mediaRouter);
 
 
 
-db.sync().then(() => {
+db.sync({alter: true}).then(() => {
   console.log('Database synced');
+
+  initializeCronJobs();
   httpServer.listen(3000, () => {
     console.log('Server is running on port 3000');
   });

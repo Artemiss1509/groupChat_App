@@ -7,7 +7,7 @@ import { Sequelize } from "sequelize";
 export const createOrGetConversation = async (req, res) => {
     try {
         const currentUserId = req.user.id;
-        const { participantIds } = req.body; // Now accepts array of participant IDs
+        const { participantIds } = req.body;
 
         if (!participantIds || ! Array.isArray(participantIds) || participantIds.length === 0) {
             return res.status(400).json({ 
@@ -15,11 +15,11 @@ export const createOrGetConversation = async (req, res) => {
             });
         }
 
-        // All participants including current user
+        
         const allParticipantIds = [currentUserId, ...participantIds].sort();
         const conversationType = allParticipantIds.length === 2 ? 'individual' : 'group';
 
-        // Check if conversation already exists with these exact participants
+    
         const conversations = await Conversation.findAll({
             include: [{
                 model: Users,
@@ -28,7 +28,7 @@ export const createOrGetConversation = async (req, res) => {
             }]
         });
 
-        // Find existing conversation with exact same participants
+    
         for (const conv of conversations) {
             const convParticipantIds = conv.Users.map(u => u.id).sort();
             if (JSON.stringify(convParticipantIds) === JSON.stringify(allParticipantIds)) {
@@ -39,7 +39,7 @@ export const createOrGetConversation = async (req, res) => {
             }
         }
 
-        // Create new conversation
+
         const newConversation = await Conversation.create({
             type: conversationType,
             name: conversationType === 'group' ? req.body.groupName || 'Group Chat' : null
@@ -101,7 +101,7 @@ export const getUserConversations = async (req, res) => {
             const participants = await conv.getUsers({ attributes: ['id', 'name', 'email'] });
             const lastMessage = Array.isArray(conv.Messages) && conv.Messages.length ? conv.Messages[0] : null;
 
-            // Check if last message is unread by current user
+
             let hasUnreadMessages = false;
             if (lastMessage) {
                 const readStatus = lastMessage.MessageReadStatuses || [];
@@ -109,7 +109,7 @@ export const getUserConversations = async (req, res) => {
                 hasUnreadMessages = ! currentUserRead && lastMessage.senderId !== currentUserId;
             }
 
-            // For individual chats, show other participant; for groups, show all or group name
+
             let displayName;
             let displayParticipants;
 

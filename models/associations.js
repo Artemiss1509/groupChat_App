@@ -2,6 +2,7 @@ import Users from "./user.model.js";
 import Conversation from "./conversation.model.js";
 import Messages from "./messages.model.js";
 import MessageReadStatus from "./messageReadStatus.model.js";
+import ArchivedMessages from "./archivedMessages.model.js";
 
 // 1. Many-to-Many: Users belong to many Conversations
 Users.belongsToMany(Conversation, { through: 'ConversationParticipants' });
@@ -21,3 +22,10 @@ MessageReadStatus.belongsTo(Messages, { foreignKey: 'messageId' });
 
 Users.hasMany(MessageReadStatus, { foreignKey: 'userId' });
 MessageReadStatus.belongsTo(Users, { foreignKey:  'userId' });
+
+// 5. ArchivedMessages associations
+Conversation.hasMany(ArchivedMessages, { foreignKey: 'conversationId' });
+ArchivedMessages.belongsTo(Conversation, { foreignKey: 'conversationId' });
+
+Users.hasMany(ArchivedMessages, { foreignKey: 'senderId' });
+ArchivedMessages.belongsTo(Users, { foreignKey: 'senderId' });

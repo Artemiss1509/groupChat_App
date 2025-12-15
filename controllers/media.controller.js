@@ -21,7 +21,7 @@ export const uploadMedia = async (req, res) => {
             return res.status(400).json({ message: "Conversation ID is required" });
         }
 
-        // Verify user is part of the conversation
+    
         const conversation = await Conversation.findByPk(conversationId, {
             include: [{
                 model: Users,
@@ -36,12 +36,12 @@ export const uploadMedia = async (req, res) => {
             });
         }
 
-        // Generate unique filename
+    
         const fileExtension = file.originalname.split('.').pop();
         const fileName = `${uuidv4()}.${fileExtension}`;
         const fileKey = `conversations/${conversationId}/${fileName}`;
 
-        // Upload to S3
+    
         const uploadParams = {
             Bucket:  BUCKET_NAME,
             Key: fileKey,
@@ -55,11 +55,11 @@ export const uploadMedia = async (req, res) => {
 
         await s3Client.send(new PutObjectCommand(uploadParams));
 
-        // Determine media type
+        
         const mediaType = file.mimetype.startsWith('image/') ? 'image' : 
                          file.mimetype.startsWith('video/') ? 'video' : 'file';
 
-        // Save message with media reference
+
         const newMessage = await Messages.create({
             senderId,
             conversationId,
@@ -68,7 +68,7 @@ export const uploadMedia = async (req, res) => {
             mediaType:  mediaType
         });
 
-        // Mark as read by sender
+
         await MessageReadStatus.create({
             messageId: newMessage.id,
             userId: senderId
@@ -82,11 +82,11 @@ export const uploadMedia = async (req, res) => {
             }]
         });
 
-        // Emit via Socket.IO
+
         const io = req.app.get('io');
         io.to(`conversation-${conversationId}`).emit('new-message', messageWithSender);
 
-        // Notify other participants
+
         const participants = await conversation.getUsers();
         participants.forEach(participant => {
             if (participant.id !== senderId) {
@@ -116,7 +116,6 @@ export const getMediaUrl = async (req, res) => {
         const { fileKey } = req.query;
         const currentUserId = req.user.id;
 
-        // Verify user has access to this media
         const conversationId = fileKey.split('/')[1];
         const conversation = await Conversation.findByPk(conversationId, {
             include:  [{
@@ -132,7 +131,6 @@ export const getMediaUrl = async (req, res) => {
             });
         }
 
-        // Generate presigned URL (valid for 1 hour)
         const command = new GetObjectCommand({
             Bucket: BUCKET_NAME,
             Key: fileKey

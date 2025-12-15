@@ -2,6 +2,7 @@ import Messages from "../models/messages.model.js";
 import Users from "../models/user.model.js";
 import Conversation from "../models/conversation.model.js";
 import MessageReadStatus from "../models/messageReadStatus.model.js";
+import ArchivedMessages from "../models/archivedMessages.model.js";
 import { Op } from "sequelize";
 
 export const sendMessage = async (req, res) => {
@@ -35,7 +36,7 @@ export const sendMessage = async (req, res) => {
             content
         });
 
-        // Mark as read by sender
+        
         await MessageReadStatus.create({
             messageId: newMessage.id,
             userId: senderId
@@ -49,13 +50,13 @@ export const sendMessage = async (req, res) => {
             }]
         });
 
-        // Get all participants to notify them
+    
         const participants = await conversation.getUsers();
         
         const io = req.app.get('io');
         io.to(`conversation-${conversationId}`).emit('new-message', messageWithSender);
 
-        // Notify users not in the conversation room about new message
+    
         participants.forEach(participant => {
             if (participant.id !== senderId) {
                 io.emit('conversation-update', {
@@ -98,17 +99,44 @@ export const getConversationMessages = async (req, res) => {
             });
         }
 
-        const messages = await Messages.findAll({
+        const recentMessages = await Messages.findAll({
             where: { conversationId },
             include: [{
                 model: Users,
                 as: 'User',
                 attributes: ['id', 'name', 'email']
             }],
-            order: [['createdAt', 'ASC']] 
+            order: [['createdAt', 'ASC']]
         });
 
-        res.status(200).json(messages);
+        const archivedMessages = await ArchivedMessages. findAll({
+            where: { conversationId },
+            include: [{
+                model: Users,
+                as: 'User',
+                attributes: ['id', 'name', 'email']
+            }],
+            order: [['originalCreatedAt', 'ASC']]
+        });
+
+        const transformedArchivedMessages = archivedMessages.map(msg => ({
+            id: msg.originalMessageId,
+            senderId:  msg.senderId,
+            conversationId: msg.conversationId,
+            content: msg.content,
+            mediaUrl: msg. mediaUrl,
+            mediaType:  msg.mediaType,
+            isRead: msg.isRead,
+            createdAt: msg.originalCreatedAt,
+            User: msg.User,
+            isArchived: true
+        }));
+
+        const allMessages = [...transformedArchivedMessages, ...recentMessages]. sort((a, b) => 
+            new Date(a.createdAt) - new Date(b.createdAt)
+        );
+
+        res.status(200).json(allMessages);
 
     } catch (error) {
         console.error('Error fetching messages:', error);

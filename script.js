@@ -324,7 +324,6 @@ function updateSelectedUsersDisplay() {
                 selectedUsers = selectedUsers.filter(u => u.id !== user.id);
                 updateSelectedUsersDisplay();
                 
-                // Uncheck the checkbox in results
                 const checkbox = document.getElementById(`user-${user.id}`);
                 if (checkbox) checkbox.checked = false;
             });
@@ -621,7 +620,6 @@ async function uploadMedia(conversationId, file) {
     }
 }
 
-// Function to get media URL
 async function getMediaUrl(fileKey) {
     try {
         const token = localStorage.getItem('token');
