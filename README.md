@@ -89,6 +89,6 @@ groupChat_App/
 ├── index.html                   # Landing page
 ├── loginPage.html              # User login interface
 ├── chatPage.html               # Main chat interface
-├── script.js                   # Frontend logic (20KB+)
+├── script.js                   # Frontend logic
 └── chatStyle.css               # Application styling
 ```
